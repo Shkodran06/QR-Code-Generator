@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SSCC QR-CODE GENERATOR</title>
 <style>
-body { font-family: Arial,sans-serif; margin:0; padding:0; display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:100vh; transition:background 0.3s,color 0.3s; }
+body { font-family: Arial,sans-serif; margin:0; padding:0; display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:100vh; transition:background 0.3s,color 0.3s; position:relative; }
 
 /* Tema chiaro */
 body.light { background:#ffffff; color:#ff7b00; }
@@ -36,9 +36,13 @@ body.dark .controls button:hover, body.dark .qty-btn:hover, body.dark .input-row
 footer { width:100%; text-align:center; padding:10px 0; font-size:0.95rem; cursor:pointer; }
 
 /* Dashboard */
-#dashboardContainer { display:none; padding:20px; max-width:900px; width:90%; background:#f8f8f8; border-radius:10px; }
+#dashboardContainer { display:none; padding:20px; max-width:900px; width:90%; background:#f8f8f8; border-radius:10px; position:fixed; top:50px; left:50%; transform:translateX(-50%); z-index:1000; }
 body.dark #dashboardContainer { background:#1b1b1b; color:#00a6ff; }
 #dashboardContent div { margin-bottom:5px; }
+
+/* Icona login */
+#loginIcon { position:fixed; top:10px; right:10px; cursor:pointer; font-size:24px; z-index:1001; }
+
 </style>
 </head>
 <body class="light">
@@ -73,6 +77,9 @@ body.dark #dashboardContainer { background:#1b1b1b; color:#00a6ff; }
 </div>
 
 <footer id="themeToggle">Made with ❤️ by Shko 🌞 / 🌙  Thema wechseln</footer>
+
+<!-- Icona login -->
+<div id="loginIcon" title="Accedi alla Dashboard">🔒</div>
 
 <!-- Dashboard nascosta -->
 <div id="dashboardContainer">
@@ -121,6 +128,7 @@ const dashboardContent = document.getElementById('dashboardContent');
 const loginBtn = document.getElementById('loginBtn');
 const logoutBtn = document.getElementById('logoutBtn');
 const statsDiv = document.getElementById('stats');
+const loginIcon = document.getElementById('loginIcon');
 
 let qrCode = null;
 let ssccHistory = [];
@@ -174,8 +182,7 @@ function printQR(copies=1){
   let bodyHTML='';
   for(let i=0;i<copies;i++){
     bodyHTML+=`<div class="label"><img src="${qrSrc}"><div class="code">${codeText}</div></div>`;
-    // Salvataggio Firestore
-    db.collection("printLogs").add({pcId:ssccInput.value, sscc:ssccInput.value, quantity:copies, timestamp:firebase.firestore.FieldValue.serverTimestamp()});
+    db.collection("printLogs").add({pcId:pcId, sscc:ssccInput.value, quantity:copies, timestamp:firebase.firestore.FieldValue.serverTimestamp()});
   }
   printWindow.document.write(`<html><head><title>Druck</title><style>@page{size:50mm 30mm;margin:0}body{margin:0;padding:0;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;font-family:Arial,sans-serif}.label{width:50mm;height:30mm;display:flex;flex-direction:column;justify-content:center;align-items:center;page-break-inside:avoid;}img{width:40mm;height:40mm;}.code{font-size:9pt;font-weight:bold;margin-top:1mm;}</style></head><body>${bodyHTML}</body></html>`);
   printWindow.document.close(); printWindow.focus(); printWindow.print(); printWindow.close();
@@ -183,7 +190,7 @@ function printQR(copies=1){
 
 /* -------- Eventi -------- */
 ssccInput.addEventListener('input', ()=>{ const val=ssccInput.value.trim(); if(val.length===18){ generateQR(val); } });
-clearBtn.addEventListener('click', ()=>{ ssccInput.value=''; generateQR(''); });
+document.getElementById('clearBtn').addEventListener('click', ()=>{ ssccInput.value=''; generateQR(''); });
 qtyButtons.forEach(btn=>{
   btn.addEventListener('click', ()=>{
     const qty=parseInt(btn.dataset.count);
@@ -194,17 +201,31 @@ qtyButtons.forEach(btn=>{
   });
 });
 
-/* -------- Dashboard -------- */
-document.addEventListener('keydown', e=>{ if(e.ctrlKey && e.key==='d'){ dashboardContainer.style.display='block'; document.querySelector('.wrapper').style.display='none'; } });
+/* -------- Dashboard login con icona -------- */
+loginIcon.addEventListener('click', ()=>{
+  dashboardContainer.style.display='block';
+  document.querySelector('.wrapper').style.display='none';
+});
+
 loginBtn.addEventListener('click', ()=>{
   const email=document.getElementById('loginEmail').value;
   const pass=document.getElementById('loginPassword').value;
-  auth.signInWithEmailAndPassword(email, pass)
-  .then(()=>{ dashboardLogin.style.display='none'; dashboardContent.style.display='block'; loadStats(); })
+  auth.signInWithEmailAndPassword(email,pass)
+  .then(()=>{
+    dashboardLogin.style.display='none';
+    dashboardContent.style.display='block';
+    loadStats();
+  })
   .catch(err=>alert("Errore login: "+err.message));
 });
+
 logoutBtn.addEventListener('click', ()=>{
-  auth.signOut().then(()=>{ dashboardLogin.style.display='block'; dashboardContent.style.display='none'; });
+  auth.signOut().then(()=>{
+    dashboardLogin.style.display='block';
+    dashboardContent.style.display='none';
+    dashboardContainer.style.display='none';
+    document.querySelector('.wrapper').style.display='flex';
+  });
 });
 
 function loadStats(){
