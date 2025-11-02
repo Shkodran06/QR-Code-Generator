@@ -47,6 +47,7 @@ body.dark #dashboardContainer { background:#1b1b1b; color:#00a6ff; }
 <body class="light">
 
 <div class="wrapper">
+
   <div class="controls">
     <label for="ssccInput">SSCC Nummer</label>
     <div class="input-row">
@@ -71,9 +72,10 @@ body.dark #dashboardContainer { background:#1b1b1b; color:#00a6ff; }
     </div>
     <div id="last4">----</div>
   </div>
+
 </div>
 
-<footer id="themeToggle">Made with ❤️ by Shko 🌞 / 🌙  Thema wechseln</footer>
+<footer id="themeToggle">Made with ❤️ by Shko 🌞 / 🌙 Thema wechseln</footer>
 
 <!-- Icona login -->
 <div id="loginIcon" title="Accedi alla Dashboard">🔒</div>
@@ -104,7 +106,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyA5kXm_3HMWO0YY4h_FzGr9bOpHZ5J6oxg",
   authDomain: "server-06-0201.firebaseapp.com",
   projectId: "server-06-0201",
-  storageBucket: "server-06-0201.appspot.com",
+  storageBucket: "server-06-0201.firebasestorage.app",
   messagingSenderId: "436450955649",
   appId: "1:436450955649:web:44645c7d39942b44875880"
 };
@@ -142,57 +144,75 @@ themeToggle.addEventListener('click', ()=>{
 /* -------- Cronologia -------- */
 function addToHistory(sscc){
   if(!sscc) return;
-  const now=new Date();
-  const time=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
-  ssccHistory=ssccHistory.filter(item=>item.value!==sscc);
+  const now = new Date();
+  const time = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  ssccHistory = ssccHistory.filter(item => item.value !== sscc);
   ssccHistory.unshift({value:sscc,time});
   if(ssccHistory.length>6) ssccHistory.pop();
   renderHistory();
 }
+
 function renderHistory(){
-  historyList.innerHTML='';
+  historyList.innerHTML = '';
   ssccHistory.forEach(item=>{
-    const div=document.createElement('div');
-    div.className='history-item';
+    const div = document.createElement('div');
+    div.className = 'history-item';
     div.textContent = `${item.value} (${item.time})`;
-    div.addEventListener('click', ()=>{ ssccInput.value=item.value; generateQR(item.value); });
+    div.addEventListener('click', ()=>{ ssccInput.value = item.value; generateQR(item.value); });
     historyList.appendChild(div);
   });
 }
 
 /* -------- QR -------- */
 function generateQR(value){
-  qrContainer.innerHTML=''; last4El.textContent='----';
-  if(!value){ qrContainer.innerHTML='<div class="qr-placeholder">📱 QR wird hier generiert</div>'; return; }
-  qrCode=new QRCode(qrContainer,{text:value,width:220,height:220});
-  last4El.textContent=value.slice(-4);
+  qrContainer.innerHTML = '';
+  last4El.textContent = '----';
+  if(!value){
+    qrContainer.innerHTML = '<div class="qr-placeholder">📱 QR wird hier generiert</div>';
+    return;
+  }
+  qrCode = new QRCode(qrContainer, { text: value, width: 220, height: 220 });
+  last4El.textContent = value.slice(-4);
   addToHistory(value);
 }
 
 /* -------- Stampa e Firestore -------- */
 function printQR(copies=1){
-  const img=qrContainer.querySelector('img')||qrContainer.querySelector('canvas');
+  const img = qrContainer.querySelector('img') || qrContainer.querySelector('canvas');
   if(!img) return alert('QR non generato');
-  const qrSrc=img.src||img.toDataURL('image/png');
-  const codeText=last4El.textContent||'';
-  const printWindow=window.open('','_blank','width=600,height=400');
-  let bodyHTML='';
-  for(let i=0;i<copies;i++){
-    bodyHTML+=`<div class="label"><img src="${qrSrc}"><div class="code">${codeText}</div></div>`;
-    db.collection("printLogs").add({pcId:pcId, sscc:ssccInput.value, quantity:copies, timestamp:firebase.firestore.FieldValue.serverTimestamp()});
+  const qrSrc = img.src || img.toDataURL('image/png');
+  const codeText = last4El.textContent || '';
+  const printWindow = window.open('', '_blank', 'width=600,height=400');
+  let bodyHTML = '';
+  for(let i=0; i<copies; i++){
+    bodyHTML += `<div class="label"><img src="${qrSrc}"><div class="code">${codeText}</div></div>`;
+    db.collection("printLogs").add({
+      pcId: pcId,
+      sscc: ssccInput.value,
+      quantity: copies,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
   }
   printWindow.document.write(`<html><head><title>Druck</title><style>@page{size:50mm 30mm;margin:0}body{margin:0;padding:0;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;font-family:Arial,sans-serif}.label{width:50mm;height:30mm;display:flex;flex-direction:column;justify-content:center;align-items:center;page-break-inside:avoid;}img{width:40mm;height:40mm;}.code{font-size:9pt;font-weight:bold;margin-top:1mm;}</style></head><body>${bodyHTML}</body></html>`);
   printWindow.document.close(); printWindow.focus(); printWindow.print(); printWindow.close();
 }
 
 /* -------- Eventi -------- */
-ssccInput.addEventListener('input', ()=>{ const val=ssccInput.value.trim(); if(val.length===18){ generateQR(val); } });
-document.getElementById('clearBtn').addEventListener('click', ()=>{ ssccInput.value=''; generateQR(''); });
+ssccInput.addEventListener('input', ()=>{
+  const val = ssccInput.value.trim();
+  generateQR(val); // Genera QR indipendentemente dalla lunghezza
+});
+
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  ssccInput.value = '';
+  generateQR('');
+});
+
 qtyButtons.forEach(btn=>{
   btn.addEventListener('click', ()=>{
-    const qty=parseInt(btn.dataset.count);
-    const sscc=ssccInput.value.trim();
-    if(sscc.length!==18) return alert('SSCC non valido');
+    const qty = parseInt(btn.dataset.count);
+    const sscc = ssccInput.value.trim();
+    if(!sscc) return alert('Inserisci un valore prima di stampare');
     generateQR(sscc);
     printQR(qty);
   });
@@ -200,37 +220,37 @@ qtyButtons.forEach(btn=>{
 
 /* -------- Dashboard login con icona -------- */
 loginIcon.addEventListener('click', ()=>{
-  dashboardContainer.style.display='block';
-  document.querySelector('.wrapper').style.display='none';
+  dashboardContainer.style.display = 'block';
+  document.querySelector('.wrapper').style.display = 'none';
 });
 
 loginBtn.addEventListener('click', ()=>{
-  const email=document.getElementById('loginEmail').value;
-  const pass=document.getElementById('loginPassword').value;
-  auth.signInWithEmailAndPassword(email,pass)
-  .then(()=>{
-    dashboardLogin.style.display='none';
-    dashboardContent.style.display='block';
-    loadStats();
-  })
-  .catch(err=>alert("Errore login: "+err.message));
+  const email = document.getElementById('loginEmail').value;
+  const pass = document.getElementById('loginPassword').value;
+  auth.signInWithEmailAndPassword(email, pass)
+    .then(()=>{
+      dashboardLogin.style.display = 'none';
+      dashboardContent.style.display = 'block';
+      loadStats();
+    })
+    .catch(err => alert("Errore login: " + err.message));
 });
 
 logoutBtn.addEventListener('click', ()=>{
   auth.signOut().then(()=>{
-    dashboardLogin.style.display='block';
-    dashboardContent.style.display='none';
-    dashboardContainer.style.display='none';
-    document.querySelector('.wrapper').style.display='flex';
+    dashboardLogin.style.display = 'block';
+    dashboardContent.style.display = 'none';
+    dashboardContainer.style.display = 'none';
+    document.querySelector('.wrapper').style.display = 'flex';
   });
 });
 
 function loadStats(){
   db.collection("printLogs").orderBy("timestamp","desc").limit(50).onSnapshot(snapshot=>{
-    statsDiv.innerHTML='';
+    statsDiv.innerHTML = '';
     snapshot.forEach(doc=>{
-      const data=doc.data();
-      const div=document.createElement('div');
+      const data = doc.data();
+      const div = document.createElement('div');
       div.textContent = `PC: ${data.pcId}, SSCC: ${data.sscc}, Quantità: ${data.quantity}`;
       statsDiv.appendChild(div);
     });
